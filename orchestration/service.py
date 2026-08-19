@@ -6,7 +6,7 @@ QueryParser (3A.2), CapabilityExecutor (3A.4), and ResponseFormatter (3A.5)
 into a unified entry point for processing natural-language cricket questions.
 """
 
-from typing import Optional
+from typing import Any, Optional
 
 from orchestration.schemas import QuestionRequest, OrchestrationResponse
 from orchestration.parser import QueryParser
@@ -21,19 +21,40 @@ class OrchestrationService:
 
     def __init__(
         self,
-        parser: Optional[QueryParser] = None,
+        parser: Optional[Any] = None,
         executor: Optional[CapabilityExecutor] = None,
         formatter: Optional[ResponseFormatter] = None,
+        planner: Optional[Any] = None,
     ):
         """
         Initialize OrchestrationService with optional dependency injection.
 
+        Precedence rules:
+        1. If planner is explicitly supplied, use planner.
+        2. Else if parser is explicitly supplied, use parser directly (preserving Phase 3A behavior).
+        3. Else, default to HybridQueryPlanner().
+
         Args:
-            parser: Custom QueryParser instance. Defaults to QueryParser().
+            parser: Custom QueryParser instance.
             executor: Custom CapabilityExecutor instance. Defaults to CapabilityExecutor().
             formatter: Custom ResponseFormatter instance. Defaults to ResponseFormatter().
+            planner: Custom planner instance (e.g. HybridQueryPlanner or LLMQueryPlanner).
         """
-        self.parser = parser if parser is not None else QueryParser()
+        if planner is not None:
+            self.planner = planner
+            self.parser = planner
+            self._use_planner_method = True
+        elif parser is not None:
+            self.planner = parser
+            self.parser = parser
+            self._use_planner_method = False
+        else:
+            from orchestration.hybrid_planner import HybridQueryPlanner
+            default_hybrid = HybridQueryPlanner()
+            self.planner = default_hybrid
+            self.parser = default_hybrid
+            self._use_planner_method = True
+
         self.executor = executor if executor is not None else CapabilityExecutor()
         self.formatter = formatter if formatter is not None else ResponseFormatter()
 
@@ -62,9 +83,11 @@ class OrchestrationService:
 
         clean_question = req.question
 
-
-        # Step 1: Parse question into QueryPlan
-        plan = self.parser.parse(clean_question)
+        # Step 1: Parse/plan question into QueryPlan according to precedence
+        if self._use_planner_method and hasattr(self.planner, "plan"):
+            plan = self.planner.plan(clean_question)
+        else:
+            plan = self.parser.parse(clean_question)
 
         # Step 2: Handle Clarification Requirement
         if plan.requires_clarification:

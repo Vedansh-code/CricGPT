@@ -7,7 +7,7 @@ using the provider-agnostic LLMProvider interface.
 
 import json
 import os
-from typing import Any, Optional, Type, TypeVar, Union, cast
+from typing import Any, Optional, Type, TypeVar, Union
 import httpx
 from pydantic import BaseModel, ValidationError
 
@@ -152,7 +152,7 @@ class OpenAIProvider(LLMProvider):
 
             try:
                 validated_output = response_model.model_validate_json(content)
-                return cast(T, validated_output)
+                return validated_output
             except ValidationError as exc:
                 raise PlanningError(f"LLM provider output failed validation against {response_model.__name__}: {exc}") from exc
             except Exception as exc:
