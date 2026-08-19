@@ -30,11 +30,15 @@ from orchestration.registry import (
 from orchestration.executor import CapabilityExecutor
 from orchestration.formatter import ResponseFormatter
 from orchestration.service import OrchestrationService, get_default_service
+from orchestration.llm import LLMProvider, LLMQueryPlanner
 
 __all__ = [
     # Service
     "OrchestrationService",
     "get_default_service",
+    # LLM Planner & Provider Abstraction
+    "LLMProvider",
+    "LLMQueryPlanner",
     # Formatter
     "ResponseFormatter",
     # Executor

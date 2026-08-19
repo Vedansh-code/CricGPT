@@ -3,9 +3,10 @@ from orchestration import OrchestrationService
 service = OrchestrationService()
 
 queries = [
-    "What is V Kohli's batting average?",
+    "What is v Kohli's batting average?",
     "What is Virat Kohli's strike rate?",
     "How has Virat Kohli performed against Jasprit Bumrah?",
+    "How has V Kohli performed against Jasprit Bumrah?",
     "Kohli vs Bumrah",
 ]
 
