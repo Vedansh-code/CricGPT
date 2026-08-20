@@ -158,6 +158,78 @@ class TestOrchestrationServiceUnit(unittest.TestCase):
         self.assertIsNotNone(service.executor)
         self.assertIsNotNone(service.formatter)
 
+    def test_llm_answer_generator_success(self):
+        mock_parser = MagicMock()
+        mock_executor = MagicMock()
+        mock_formatter = MagicMock()
+        mock_answer_gen = MagicMock()
+
+        plan = QueryPlan(
+            intent=Intent.BATTING_AVERAGE,
+            arguments=QueryArguments(player_name="Virat Kohli"),
+            confidence=0.95,
+            source="rule_based_parser"
+        )
+        mock_parser.parse.return_value = plan
+        exec_res = ExecutionResult(
+            success=True,
+            intent=Intent.BATTING_AVERAGE,
+            result={"batting_average": 40.81},
+            metadata={"capability": "Batting Average"}
+        )
+        mock_executor.execute.return_value = exec_res
+        mock_answer_gen.generate_answer.return_value = "Virat Kohli averages 40.81 in batting."
+
+        service = OrchestrationService(
+            parser=mock_parser,
+            executor=mock_executor,
+            formatter=mock_formatter,
+            answer_generator=mock_answer_gen,
+        )
+
+        response = service.ask("What is Virat Kohli's batting average?")
+
+        mock_answer_gen.generate_answer.assert_called_once_with("What is Virat Kohli's batting average?", exec_res)
+        mock_formatter.format.assert_not_called()
+        self.assertEqual(response.answer, "Virat Kohli averages 40.81 in batting.")
+
+    def test_llm_answer_generator_failure_falls_back_to_formatter(self):
+        mock_parser = MagicMock()
+        mock_executor = MagicMock()
+        mock_formatter = MagicMock()
+        mock_answer_gen = MagicMock()
+
+        plan = QueryPlan(
+            intent=Intent.BATTING_AVERAGE,
+            arguments=QueryArguments(player_name="Virat Kohli"),
+            confidence=0.95,
+            source="rule_based_parser"
+        )
+        mock_parser.parse.return_value = plan
+        exec_res = ExecutionResult(
+            success=True,
+            intent=Intent.BATTING_AVERAGE,
+            result={"batting_average": 40.81},
+            metadata={"capability": "Batting Average"}
+        )
+        mock_executor.execute.return_value = exec_res
+        mock_answer_gen.generate_answer.side_effect = FormattingError("LLM generation timeout")
+        mock_formatter.format.return_value = "Virat Kohli's batting average is 40.81."
+
+        service = OrchestrationService(
+            parser=mock_parser,
+            executor=mock_executor,
+            formatter=mock_formatter,
+            answer_generator=mock_answer_gen,
+        )
+
+        response = service.ask("What is Virat Kohli's batting average?")
+
+        mock_answer_gen.generate_answer.assert_called_once_with("What is Virat Kohli's batting average?", exec_res)
+        mock_formatter.format.assert_called_once_with(exec_res)
+        self.assertEqual(response.answer, "Virat Kohli's batting average is 40.81.")
+
+
 
 class TestOrchestrationServiceIntegration(unittest.TestCase):
     """Integration test suite using real components and database."""

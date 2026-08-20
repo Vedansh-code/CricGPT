@@ -165,6 +165,8 @@ class TestHybridQueryPlanner(unittest.TestCase):
 
         self.mock_llm_planner.plan.assert_not_called()
         self.assertTrue(plan.requires_clarification)
+        self.assertIsNotNone(plan.clarification_message)
+        assert plan.clarification_message is not None
         self.assertIn("Multiple players matched", plan.clarification_message)
 
     def test_llm_failure_becomes_clean_PlanningError(self):
