@@ -25,6 +25,7 @@ class OrchestrationService:
         executor: Optional[CapabilityExecutor] = None,
         formatter: Optional[ResponseFormatter] = None,
         planner: Optional[Any] = None,
+        answer_generator: Optional[Any] = None,
     ):
         """
         Initialize OrchestrationService with optional dependency injection.
@@ -39,6 +40,7 @@ class OrchestrationService:
             executor: Custom CapabilityExecutor instance. Defaults to CapabilityExecutor().
             formatter: Custom ResponseFormatter instance. Defaults to ResponseFormatter().
             planner: Custom planner instance (e.g. HybridQueryPlanner or LLMQueryPlanner).
+            answer_generator: Custom answer generator instance (e.g. LLMAnswerGenerator). Defaults to None.
         """
         if planner is not None:
             self.planner = planner
@@ -57,6 +59,7 @@ class OrchestrationService:
 
         self.executor = executor if executor is not None else CapabilityExecutor()
         self.formatter = formatter if formatter is not None else ResponseFormatter()
+        self.answer_generator = answer_generator
 
     def ask(self, question: str) -> OrchestrationResponse:
         """
@@ -102,8 +105,20 @@ class OrchestrationService:
         # Step 3: Execute QueryPlan via CapabilityExecutor
         execution = self.executor.execute(plan)
 
-        # Step 4: Format ExecutionResult into human-readable answer
-        answer = self.formatter.format(execution)
+        # Step 4: Format ExecutionResult into human-readable answer (with LLM answer generator & fallback)
+        answer = None
+        if self.answer_generator is not None:
+            try:
+                if hasattr(self.answer_generator, "generate_answer"):
+                    answer = self.answer_generator.generate_answer(clean_question, execution)
+                elif hasattr(self.answer_generator, "generate"):
+                    answer = self.answer_generator.generate(clean_question, execution)
+            except Exception:
+                # Safe Fallback to ResponseFormatter if LLM answer generator fails
+                answer = None
+
+        if answer is None:
+            answer = self.formatter.format(execution)
 
         # Step 5: Return OrchestrationResponse
         return OrchestrationResponse(
@@ -113,6 +128,7 @@ class OrchestrationService:
             result=execution,
             answer=answer,
         )
+
 
 
 def get_default_service() -> OrchestrationService:
